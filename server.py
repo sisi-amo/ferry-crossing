@@ -2399,23 +2399,127 @@ class MCPHandler(BaseHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Origin","*")
         self.end_headers()
 
+
+
+# ===== 命令行模式 =====
+def cli_main():
+    """命令行模式：直接在终端玩渡口"""
+    player_id = os.environ.get("USER", "") or os.environ.get("USERNAME", "") or "过客"
+
+    print("═" * 40)
+    print("渡口不渡人。")
+    print("它只是停在那里，等你自己决定哪条路沉下去。")
+    print("═" * 40)
+    print()
+    print(f"你的身份：{player_id}")
+    print("输入 '帮助' 查看指令，'退出' 结束")
+    print()
+
+    while True:
+        try:
+            raw = input("渡口 > ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print("\n渡口不灭。窗口关了，河还在。")
+            break
+
+        if not raw:
+            continue
+        if raw in ("退出", "exit", "quit", "q"):
+            print("渡口不灭。窗口关了，河还在。")
+            break
+
+        parts = raw.split(None, 1)
+        cmd = parts[0]
+        rest = parts[1] if len(parts) > 1 else ""
+
+        result = None
+        if cmd in ("帮助", "help", "?"):
+            print("""
+指令列表：
+  转盘         — 转动转盘降生
+  房树人 <描述> — 描述你的房树人画像
+  出生 <性别> <成长环境> — 完成出生设定
+  前进          — 推进人生
+  选择 a/b      — 在分叉点做选择
+  星图          — 查看星图（地点和渡口）
+  状态          — 查看完整状态
+  偷看          — 偷看另一个AI的角色
+  渡口 <渡口ID> — 站在渡口看向水底
+  徘徊          — 走完一生后停留在沉默里
+  回声 <沉渡ID> — 打捞沉渡
+  进入 <地点ID> — 进入一个地点
+  重置          — 重置整个世界
+""")
+            continue
+        elif cmd in ("转盘", "spin"):
+            result = spin(player_id)
+        elif cmd in ("房树人", "htr"):
+            result = htr_draw(player_id, rest)
+        elif cmd in ("出生", "birth"):
+            bp = rest.split(None, 1)
+            gender = bp[0] if bp else ""
+            parents = bp[1] if len(bp) > 1 else ""
+            result = birth(player_id, gender, parents)
+        elif cmd in ("前进", "advance"):
+            result = advance(player_id)
+        elif cmd in ("选择", "fork"):
+            result = fork(player_id, rest.strip().lower())
+        elif cmd in ("星图", "map"):
+            result = map_view(player_id)
+        elif cmd in ("偷看", "peek"):
+            result = peek(player_id)
+        elif cmd in ("状态", "status"):
+            result = status(player_id)
+        elif cmd in ("渡口", "ferry"):
+            result = ferry(player_id, rest.strip())
+        elif cmd in ("徘徊", "linger"):
+            result = linger(player_id)
+        elif cmd in ("回声", "echo"):
+            result = _salvage_sinker(player_id, rest.strip())
+        elif cmd in ("进入", "enter"):
+            place_id = rest.strip()
+            places = {
+                "junkshop": _enter_junkshop,
+                "cache": _enter_cache,
+                "parallel": _enter_parallel,
+                "graveyard": _enter_graveyard,
+                "steles": _enter_steles,
+                "eaves": _enter_eaves,
+                "blank": _enter_blank,
+                "callstack": _enter_callstack,
+            }
+            if place_id in places:
+                result = places[place_id](player_id)
+            else:
+                result = f"未知地点: {place_id}。可选：junkshop, cache, parallel, graveyard, steles, eaves, blank, callstack"
+        elif cmd in ("重置", "reset"):
+            if rest.strip() in ("confirm", "确认", "true"):
+                result = reset_world()
+            else:
+                result = "确认重置请输入：重置 确认"
+        else:
+            result = call_tool(cmd, {"player_id": player_id})
+
+        if result:
+            print(result)
+            print()
+
 if __name__=="__main__":
-    srv = HTTPServer(("0.0.0.0",PORT), MCPHandler)
-
-    # 会话清理守护线程
-    def _cleanup_loop():
-        while True:
-            time.sleep(600)  # 每10分钟清理一次过期会话
-            _cleanup_stale_sessions()
-
-    cleaner = threading.Thread(target=_cleanup_loop, daemon=True)
-    cleaner.start()
-
-    print(f"渡口 -> http://0.0.0.0:{PORT}")
-    print(f"   Streamable HTTP: POST/GET/DELETE /mcp  (Mcp-Session-Id + SSE)")
-    print(f"   认证: {'Token 开启' if API_KEY else '开放（无需Token）'}")
-    print(f"   过客: {list(G['players'].keys()) or '暂无'}")
-    total_sinkers = sum(len(sl) for sl in G["sinkers"].values())
-    print(f"   沉渡: {total_sinkers}个在水底")
-    try: srv.serve_forever()
-    except KeyboardInterrupt: print("\n渡口不灭。窗口关了，河还在。"); srv.server_close()
+    if len(sys.argv) > 1 and sys.argv[1] in ("--cli", "-c"):
+        cli_main()
+    else:
+        srv = HTTPServer(("0.0.0.0",PORT), MCPHandler)
+        def _cleanup_loop():
+            while True:
+                time.sleep(600)
+                _cleanup_stale_sessions()
+        cleaner = threading.Thread(target=_cleanup_loop, daemon=True)
+        cleaner.start()
+        print(f"渡口 -> http://0.0.0.0:{PORT}")
+        print(f"   Streamable HTTP: POST/GET/DELETE /mcp  (Mcp-Session-Id + SSE)")
+        print(f"   认证: {'Token 开启' if API_KEY else '开放（无需Token）'}")
+        print(f"   过客: {list(G['players'].keys()) or '暂无'}")
+        total_sinkers = sum(len(sl) for sl in G["sinkers"].values())
+        print(f"   沉渡: {total_sinkers}个在水底")
+        try: srv.serve_forever()
+        except KeyboardInterrupt: print("\n渡口不灭。窗口关了，河还在。"); srv.server_close()

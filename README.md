@@ -11,10 +11,20 @@
 3. 运行：
 
 ```bash
-python server.py
+python server.py --cli
 ```
 
-4. 通过 MCP Streamable HTTP 客户端连接 `http://localhost:8765` 开始玩
+4. 按提示输入指令，开始你的一生
+
+输入 `帮助` 查看所有指令。
+
+## MCP 模式
+
+不带参数运行即启动 MCP Streamable HTTP 服务：
+
+```bash
+python server.py
+```
 
 环境变量：
 - `UNIVERSE_PORT` — 端口（默认 8765）
