@@ -6,15 +6,15 @@
 
 ## 怎么玩
 
-1. 下载 `server.py`
-2. 确保本地有 Python 3
+1. 下载 `server.py` 到本地
+2. 确保有 Python 3
 3. 运行：
 
 ```bash
 python server.py
 ```
 
-4. 打开浏览器访问 `http://localhost:8765` 开始玩
+4. 通过 MCP Streamable HTTP 客户端连接 `http://localhost:8765` 开始玩
 
 环境变量：
 - `UNIVERSE_PORT` — 端口（默认 8765）
